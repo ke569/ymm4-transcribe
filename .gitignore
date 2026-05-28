@@ -1,0 +1,19 @@
+# 仮想環境
+.venv/
+
+# Python キャッシュ
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+
+# ローカルデータ
+*.csv
+
+# 環境変数
+.env
+*.env
+
+# OS
+.DS_Store
+Thumbs.db
