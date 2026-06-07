@@ -13,42 +13,75 @@
 
 ## セットアップ
 
+### 推奨: ワンコマンド自動セットアップ
+
+新しい Windows PC では、リポジトリ直下の `setup.ps1` を使うと Python 3.12 / ffmpeg /
+仮想環境 / 依存パッケージまで自動で揃います（5〜15分）。
+
 ```powershell
-cd "E:\文字起こしシステム"
+git clone https://github.com/ke569/ymm4-transcribe.git "D:\文字起こしシステム"
+cd "D:\文字起こしシステム"
+PowerShell -ExecutionPolicy Bypass -File .\setup.ps1
+```
+
+### 手動セットアップ（参考）
+
+```powershell
+cd "D:\文字起こしシステム"
+py -3.12 -m venv .venv
 .venv\Scripts\Activate.ps1
-pip install -r ymm4_transcribe\requirements.txt
+python -m pip install --upgrade pip
+
+# webrtcvad は Windows でビルドエラーになるので、ホイール版を先に入れる
+pip install webrtcvad-wheels
+pip install --no-deps resemblyzer
+pip install faster-whisper scikit-learn numpy librosa scipy
+pip install torch --index-url https://download.pytorch.org/whl/cpu
 
 # ffmpeg をインストール (PATHを通す) ※既に入っていれば不要
 winget install Gyan.FFmpeg
-# winget 直後は新しいターミナルを開かないと PATH に反映されません
-ffmpeg -version  # 動作確認
+ffmpeg -version  # 動作確認 (winget 直後はターミナルを開き直す必要があります)
 ```
-
-> **メモ**: webrtcvad は Windows でビルドエラーになるので、`requirements.txt` に追加する前に
-> `pip install webrtcvad-wheels` を先に実行する必要があります。
-> その後 `pip install --no-deps resemblyzer` で resemblyzer 単体を入れ、最後に他依存を入れます。
 
 ## 使い方
 
 ```powershell
-# 基本: input.mp3 → input.csv
+# 基本: input.mp3 → input.csv (既定は単一話者モード、全セリフが 'A')
 python -m ymm4_transcribe input.mp3
 
 # 出力先指定
 python -m ymm4_transcribe input.mp3 -o "output\台本.csv"
 
-# 話者数を固定 (3人と分かっているとき)
-python -m ymm4_transcribe input.mp3 --num-speakers 3
+# 話者分離を有効にする (Resemblyzer + クラスタリング)
+python -m ymm4_transcribe input.mp3 --diarize
+
+# 話者分離ON + 話者数を固定 (3人と分かっているとき)
+python -m ymm4_transcribe input.mp3 --diarize --num-speakers 3
 
 # マッピングをCLIで渡す (非対話モード)
-python -m ymm4_transcribe input.mp3 --mapping 0=A,1=B,2=C
+python -m ymm4_transcribe input.mp3 --diarize --mapping 0=A,1=B,2=C
 
 # クラスタリング閾値の調整 (話者を1つに統合しすぎる/しすぎないとき)
-python -m ymm4_transcribe input.mp3 --distance-threshold 0.50
+python -m ymm4_transcribe input.mp3 --diarize --distance-threshold 0.50
 
 # 中間結果のデバッグJSONを保存
 python -m ymm4_transcribe input.mp3 --debug-json input.debug.json
+
+# SRT字幕ファイルも同時出力 (YMM4 v4.25.0.0+ のタイミング付き取り込み用)
+python -m ymm4_transcribe input.mp3 --srt
+# SRTのパスを明示指定する場合
+python -m ymm4_transcribe input.mp3 --srt "output\台本.srt"
 ```
+
+## SRT出力（タイミング付きYMM4取り込み）
+
+`--srt` を付けると、各セリフの開始/終了時刻つきの SRT 字幕ファイルを CSV と同時に書き出します。
+YMM4 v4.25.0.0 以降では、メニュー **ファイル → インポート → 字幕ファイルをインポート**、
+もしくはタイムラインへの **ドラッグ＆ドロップ** で、音声タイミングそのままに配置されます。
+
+各エントリは `>> キャラクター名: セリフ` の書式で書かれるため、キャラクター名が YMM4 側に
+登録済みのキャラと一致していれば、**声・立ち絵・字幕デザインが自動適用された
+ボイスアイテム**として配置されます。一致しない場合はテキストアイテム（字幕のみ）になります。
 
 ## 初回実行時の注意
 

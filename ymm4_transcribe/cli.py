@@ -16,6 +16,7 @@ from pathlib import Path
 
 from . import audio_prep, diarize, merge, transcribe
 from .csv_export import ScriptLine, write_ymm4_csv
+from .srt_export import write_ymm4_srt
 
 
 def _parse_mapping(arg: str) -> dict[int, str]:
@@ -95,21 +96,32 @@ def main(argv: list[str] | None = None) -> int:
         "-o", "--output", help="出力CSVパス (省略時は入力と同じ場所に .csv で保存)"
     )
     parser.add_argument(
+        "--diarize",
+        action="store_true",
+        help=(
+            "話者分離を有効にする (既定: OFF=全セリフを単一話者 'A' として扱う)。"
+            "ONにすると Resemblyzer + クラスタリングで話者を推定する。"
+        ),
+    )
+    parser.add_argument(
         "--num-speakers",
         type=int,
         default=None,
-        help="話者数を固定 (未指定なら自動推定)",
+        help="話者数を固定 (--diarize 指定時のみ有効、未指定なら自動推定)",
     )
     parser.add_argument(
         "--distance-threshold",
         type=float,
         default=0.55,
-        help="自動推定時のクラスタリング閾値 (cosine距離、既定0.55)",
+        help="自動推定時のクラスタリング閾値 (cosine距離、既定0.55、--diarize 指定時のみ有効)",
     )
     parser.add_argument(
         "--mapping",
         default=None,
-        help="クラスタ→キャラクター名の対応 (例: 0=A,1=B,2=C)。指定すると非対話モード",
+        help=(
+            "クラスタ→キャラクター名の対応 (例: 0=A,1=B,2=C)。指定すると非対話モード。"
+            "--diarize OFFの単一話者モードでは未指定時の既定が '0=A'。"
+        ),
     )
     parser.add_argument(
         "--language",
@@ -120,6 +132,16 @@ def main(argv: list[str] | None = None) -> int:
         "--debug-json",
         default=None,
         help="中間結果をJSONで保存 (デバッグ用)",
+    )
+    parser.add_argument(
+        "--srt",
+        nargs="?",
+        const="AUTO",
+        default=None,
+        help=(
+            "SRT字幕ファイルも出力する (YMM4 v4.25.0.0+ のタイミング付き取り込み用)。"
+            "値省略時は -o と同じ場所に同名 .srt で保存。値を渡せばそのパスに保存。"
+        ),
     )
     args = parser.parse_args(argv)
 
@@ -146,20 +168,27 @@ def main(argv: list[str] | None = None) -> int:
             print("文字起こし結果が空です。音声を確認してください。", file=sys.stderr)
             return 2
 
-        print("[3/5] 話者分離 (Resemblyzer + clustering) 中...")
-        speaker_ids = diarize.diarize(
-            prepared.full_wav,
-            segments,
-            num_speakers=args.num_speakers,
-            distance_threshold=args.distance_threshold,
-        )
+        if args.diarize:
+            print("[3/5] 話者分離 (Resemblyzer + clustering) 中...")
+            speaker_ids = diarize.diarize(
+                prepared.full_wav,
+                segments,
+                num_speakers=args.num_speakers,
+                distance_threshold=args.distance_threshold,
+            )
+        else:
+            print("[3/5] 話者分離をスキップ (単一話者モード)")
+            speaker_ids = [0] * len(segments)
         labeled = merge.combine(segments, speaker_ids)
         cluster_count = len(set(s.speaker_id for s in labeled))
-        print(f"      {cluster_count} クラスタを検出 (有効セグメント: {len(labeled)})")
+        print(f"      {cluster_count} クラスタ (有効セグメント: {len(labeled)})")
 
         print("[4/5] 話者→キャラクター名の割り当て")
         if args.mapping:
             mapping = _parse_mapping(args.mapping)
+        elif not args.diarize:
+            mapping = {0: "A"}
+            print("      単一話者モード: 0=A を自動適用")
         else:
             mapping = _interactive_mapping(labeled)
 
@@ -175,6 +204,15 @@ def main(argv: list[str] | None = None) -> int:
         print(f"[5/5] CSVを書き出し中: {output_path}")
         write_ymm4_csv(lines, output_path)
         print(f"      {len(lines)} 行を書き出しました")
+
+        if args.srt:
+            srt_path = (
+                output_path.with_suffix(".srt")
+                if args.srt == "AUTO"
+                else Path(args.srt)
+            )
+            srt_count = write_ymm4_srt(labeled, mapping, srt_path)
+            print(f"      SRT書き出し: {srt_path} ({srt_count} 行)")
 
         if args.debug_json:
             _write_debug_json(Path(args.debug_json), labeled, mapping)

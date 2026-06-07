@@ -9,6 +9,11 @@ __pycache__/
 
 # ローカルデータ
 *.csv
+*.wav
+*.mp3
+*.m4a
+*.srt
+*.sub
 
 # 環境変数
 .env
