@@ -45,6 +45,18 @@ ffmpeg -version  # 動作確認 (winget 直後はターミナルを開き直す�
 
 ## 使い方
 
+### かんたん（バッチファイル方式）
+
+リポジトリ直下の `文字お越し開始.bat` をダブルクリックすると、
+`input\` フォルダ内の音声ファイル（wav/mp3/m4a/mp4/flac/ogg）を全部まとめて
+文字起こしし、SRT字幕ファイル**のみ**を `output\` フォルダに書き出します。
+
+1. `input\` フォルダに音声ファイルを入れる
+2. `文字お越し開始.bat` をダブルクリック
+3. `output\` に `同名.srt` が出てくる
+
+### コマンド（詳細指定したい場合）
+
 ```powershell
 # 基本: input.mp3 → input.csv (既定は単一話者モード、全セリフが 'A')
 python -m ymm4_transcribe input.mp3
@@ -63,6 +75,9 @@ python -m ymm4_transcribe input.mp3 --diarize --mapping 0=A,1=B,2=C
 
 # クラスタリング閾値の調整 (話者を1つに統合しすぎる/しすぎないとき)
 python -m ymm4_transcribe input.mp3 --diarize --distance-threshold 0.50
+
+# CSVを書き出さずSRTだけ欲しい (--srt との併用)
+python -m ymm4_transcribe input.mp3 --srt --no-csv
 
 # 中間結果のデバッグJSONを保存
 python -m ymm4_transcribe input.mp3 --debug-json input.debug.json

@@ -143,7 +143,16 @@ def main(argv: list[str] | None = None) -> int:
             "値省略時は -o と同じ場所に同名 .srt で保存。値を渡せばそのパスに保存。"
         ),
     )
+    parser.add_argument(
+        "--no-csv",
+        action="store_true",
+        help="CSVを書き出さない (--srt との併用推奨。SRTだけ欲しいときに使う)。",
+    )
     args = parser.parse_args(argv)
+
+    if args.no_csv and not args.srt:
+        print("--no-csv 指定時は --srt を必ず指定してください", file=sys.stderr)
+        return 4
 
     input_path = Path(args.input)
     if not input_path.exists():
@@ -201,9 +210,12 @@ def main(argv: list[str] | None = None) -> int:
             print("出力対象のセリフがありません。", file=sys.stderr)
             return 3
 
-        print(f"[5/5] CSVを書き出し中: {output_path}")
-        write_ymm4_csv(lines, output_path)
-        print(f"      {len(lines)} 行を書き出しました")
+        if args.no_csv:
+            print("[5/5] CSV書き出しをスキップ (--no-csv)")
+        else:
+            print(f"[5/5] CSVを書き出し中: {output_path}")
+            write_ymm4_csv(lines, output_path)
+            print(f"      {len(lines)} 行を書き出しました")
 
         if args.srt:
             srt_path = (
