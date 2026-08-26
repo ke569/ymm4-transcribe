@@ -22,3 +22,14 @@ __pycache__/
 # OS
 .DS_Store
 Thumbs.db
+
+# 動画・データ(同期しない=各PCで個別)
+*.mp4
+*.mov
+*.ogg
+*.flac
+input/
+output/
+
+# ローカル設定
+.claude/settings.local.json
