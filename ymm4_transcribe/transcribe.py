@@ -59,6 +59,11 @@ def transcribe_audio(
         text = (s.text or "").strip()
         if not text:
             continue
+        # 認識したセグメントを1行ずつ表示(進捗が画面で分かるように)
+        try:
+            print(f"      {s.start:6.1f}s  {text}", flush=True)
+        except Exception:
+            pass
         result.append(
             TranscriptSegment(start=float(s.start), end=float(s.end), text=text)
         )
